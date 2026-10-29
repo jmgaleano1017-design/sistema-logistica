@@ -137,6 +137,26 @@ def clave_orden(orden):
     m = re.fullmatch(r"([A-Z]{2})-(\d{6})(\d+)", str(orden).strip())
     return (m.group(1), int(m.group(2)), int(m.group(3))) if m else ("", 0, 0)
 
+def fecha_dt(x):
+    t = str(x).strip()
+    try:
+        return pd.to_datetime(t, dayfirst="/" in t)
+    except Exception:
+        return pd.NaT
+
+def ordenar_recientes(df):
+    """Más reciente primero. Así una orden recién guardada siempre se ve arriba,
+    sin importar en qué posición del archivo haya quedado."""
+    if df.empty or "FECHA" not in df.columns:
+        return df
+    # 1) fecha (más reciente primero); 2) a igual fecha, el consecutivo mayor primero.
+    #    Las filas de una misma orden conservan su orden de ítems.
+    num = df["ORDEN"].map(lambda o: int(re.sub(r"\D", "", str(o)) or 0))
+    return (df.assign(_f=df["FECHA"].map(fecha_dt), _n=num)
+              .sort_values(["_f", "_n"], ascending=[False, False], na_position="last")
+              .drop(columns=["_f", "_n"])
+              .reset_index(drop=True))
+
 df_oc = cargar_datos(EXCEL_OC, COLS_OC)
 df_prov = cargar_datos(EXCEL_PROVEEDORES, ["Nit", "Razon Social /Nombre", "Contacto", "Telefono / Celular", "Correo Electronico", "Direccion", "Ciudad", "Condicion de Pago", "Fecha registro"])
 df_req = cargar_datos(EXCEL_REQUISICIONES, ["Requisicion", "Cec", "Cod Material", "Descripcion", "Cant.", "Und.", "Solicitante", "Ref"])
@@ -150,6 +170,10 @@ pestana1, pestana2, pestana3 = st.tabs(["➕ Emitir Nueva Orden", "🖨️ Consu
 
 with pestana1:
     st.subheader("✍️ Formulario de Emisión de Orden")
+
+    msg_ok = st.session_state.pop("oc_msg_ok", None)
+    if msg_ok:
+        st.success(msg_ok)
 
     opciones_req = ["-- Ninguna (Ingreso Manual) --"]
     if not df_req.empty and "Requisicion" in df_req.columns:
@@ -393,13 +417,18 @@ with pestana1:
                     })
 
                 df_nuevos = pd.DataFrame(nuevas_filas)
-                df_oc = pd.concat([df_oc, df_nuevos], ignore_index=True)
-                guardar_datos(df_oc, EXCEL_OC)
-
-                st.success(f"✅ ¡Orden **{id_orden}** guardada con éxito y registrada en la base de datos!")
-                st.session_state.items_orden_temp = []
-                st.session_state.oc_ver += 1
-                st.rerun()
+                df_guardar = pd.concat([df_nuevos, df_oc], ignore_index=True)   # último registro de primero
+                try:
+                    guardar_datos(df_guardar, EXCEL_OC)
+                except Exception as e:
+                    st.error(f"❌ No se pudo guardar la orden {id_orden}: {e}. "
+                             f"Si el archivo {EXCEL_OC} está abierto en Excel, ciérrelo e intente de nuevo.")
+                else:
+                    # El mensaje se guarda para mostrarlo después del rerun (si no, desaparece al instante)
+                    st.session_state.oc_msg_ok = f"✅ ¡Orden **{id_orden}** guardada con éxito ({len(nuevas_filas)} ítem(s)) y registrada en la base de datos!"
+                    st.session_state.items_orden_temp = []
+                    st.session_state.oc_ver += 1
+                    st.rerun()
 
 with pestana2:
     import streamlit.components.v1 as components
@@ -410,7 +439,7 @@ with pestana2:
     if df_oc_actual.empty or "ORDEN" not in df_oc_actual.columns:
         st.info("No hay órdenes de compra registradas para consultar o imprimir.")
     else:
-        lista_ordenes = sorted(df_oc_actual["ORDEN"].astype(str).unique(), key=clave_orden, reverse=True)
+        lista_ordenes = list(dict.fromkeys(ordenar_recientes(df_oc_actual)["ORDEN"].astype(str)))
         orden_a_consultar = st.selectbox("Seleccione la Orden a Consultar e Imprimir", lista_ordenes, key="sel_imprimir_orden")
 
         if orden_a_consultar:
@@ -633,6 +662,6 @@ Régimen: {esc(EMPRESA['regimen'])}
 with pestana3:
     st.subheader("📋 Ver Todas las Órdenes Registradas")
     if not df_oc.empty:
-        st.dataframe(df_oc, use_container_width=True)
+        st.dataframe(ordenar_recientes(df_oc), use_container_width=True, hide_index=True)
     else:
         st.info("No hay órdenes registradas todavía.")
