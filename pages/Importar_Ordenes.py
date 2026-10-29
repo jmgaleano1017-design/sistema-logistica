@@ -8,8 +8,9 @@ if not st.session_state.get("password_correct", False):
     st.error("⚠️ Acceso denegado. Por favor, inicia sesión en la página principal (Inicio / Principal).")
     st.stop()
 
-# 🔑 RUTA EXACTA DE TU BASE DE DATOS OFICIAL EN LA CARPETA PRINCIPAL
-EXCEL_OC = r"D:\OneDrive - RAMPINT S.A.S\1. Jmgp_1017\Asuserviciosss\1. Logistica\Gestion Logistica\Ordenes.xlsx"
+# 🔑 RUTA RELATIVA INTELIGENTE: Encuentra Ordenes.xlsx automáticamente en la carpeta principal
+DIRECTORIO_ACTUAL = os.path.dirname(os.path.abspath(__file__))
+EXCEL_OC = os.path.join(DIRECTORIO_ACTUAL, "..", "Ordenes.xlsx")
 
 COLS_OC_ESPERADAS = [
     "ORDEN", "FECHA", "PROVEEDOR", "NIT", "REQUISICIO", 
