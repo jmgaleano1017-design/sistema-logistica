@@ -1,4 +1,3 @@
-import streamlit as str_module
 import streamlit as st
 
 st.set_page_config(
@@ -8,19 +7,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- SISTEMA DE AUTENTICACIÓN ---
+# --- FUNCIÓN DE AUTENTICACIÓN ---
 def check_password():
     """Retorna True si el usuario ha iniciado sesión correctamente."""
-    
-    # Si ya está autenticado en la sesión, continuar
     if st.session_state.get("password_correct", False):
         return True
 
-    # Pantalla de Login
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Pantalla de Login centrada
+    col1, col2, col3 = st.columns([1, 1.5, 1])
     
     with col2:
+        st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("## 🏭 Inicio de Sesión")
         st.markdown("### Sistema de Gestión Logística - Asuserviciosss")
         st.markdown("---")
@@ -31,7 +28,7 @@ def check_password():
             submit = st.form_submit_button("Ingresar al Sistema", use_container_width=True)
             
             if submit:
-                # Verificar contra los Secrets configurados en Streamlit Cloud
+                # Comprueba contra los secrets configurados en Streamlit Cloud
                 passwords = st.secrets.get("passwords", {})
                 if username in passwords and passwords[username] == password:
                     st.session_state["password_correct"] = True
@@ -42,14 +39,14 @@ def check_password():
                     
     return False
 
-# Si no ha iniciado sesión, detener la ejecución aquí y mostrar el login
+# Si no ha iniciado sesión, se detiene aquí y NUNCA muestra el menú lateral ni los módulos
 if not check_password():
     st.stop()
 
 
-# --- APLICACIÓN PRINCIPAL (Solo visible tras iniciar sesión) ---
+# --- APLICACIÓN PRINCIPAL (Solo se carga si las credenciales son correctas) ---
 
-# Menú lateral con los enlaces a los módulos
+# Menú lateral con los módulos (Visible únicamente tras el login)
 with st.sidebar:
     st.title("Módulos del Sistema")
     st.markdown(f"👤 **Usuario:** `{st.session_state.get('username', 'Admin')}`")
@@ -68,7 +65,7 @@ with st.sidebar:
         st.session_state["password_correct"] = False
         st.rerun()
 
-# Pantalla de Bienvenida al ingresar
+# Pantalla de Bienvenida al ingresar con éxito
 st.title("🏭 Sistema de Gestión Logística Asuserviciosss")
 st.markdown("---")
 st.success("¡Bienvenido al núcleo del sistema logístico!")
