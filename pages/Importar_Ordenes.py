@@ -128,4 +128,4 @@ with open(EXCEL_OC, "rb") as f:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         type="primary"
     )
-st.download_button("📥 Descargar Base Actualizada", data=open(EXCEL_OC, "rb"), file_name="base_ordenes_compra.xlsx")
+
