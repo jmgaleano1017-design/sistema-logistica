@@ -4,12 +4,11 @@ import os
 
 st.set_page_config(page_title="Importar Órdenes", page_icon="📁", layout="wide")
 
-# Validación de seguridad: Si no ha iniciado sesión, bloquea el módulo
+# Validación de seguridad
 if not st.session_state.get("password_correct", False):
     st.error("⚠️ Acceso denegado. Por favor, inicia sesión en la página principal (Inicio / Principal).")
     st.stop()
 
-# Apuntando al nombre exacto de tu archivo real de órdenes
 EXCEL_OC = "Ordenes.xlsx"
 
 COLS_OC_ESPERADAS = [
@@ -42,15 +41,15 @@ archivo_subido = st.file_uploader("📂 Selecciona tu archivo Excel de órdenes 
 
 if archivo_subido is not None:
     try:
-        # Leer el archivo sin cabecera fija primero para detectar dónde están los títulos reales
+        # Leer el archivo sin cabecera para buscar la fila exacta de los títulos
         df_raw = pd.read_excel(archivo_subido, header=None, dtype=str)
         df_raw = df_raw.fillna("")
         
-        # Buscar la fila que contenga la palabra "orden" o "proveedor"
+        # Buscar con precisión la fila donde la columna se llama "ORDEN"
         fila_cabecera = 0
         for idx, row in df_raw.iterrows():
-            fila_str = " ".join(row.values).lower()
-            if "orden" in fila_str or "proveedor" in fila_str:
+            fila_textos = [str(val).strip().upper() for val in row.values]
+            if "ORDEN" in fila_textos:
                 fila_cabecera = idx
                 break
         
@@ -58,17 +57,19 @@ if archivo_subido is not None:
         df_importado = pd.read_excel(archivo_subido, header=fila_cabecera, dtype=str)
         df_importado = df_importado.fillna("")
         
+        # Limpiar nombres de columnas
         df_importado.columns = [str(c).strip().upper() for c in df_importado.columns]
         
-        # 🔑 RELLENO INTELIGENTE (Forward Fill): Hereda orden, fecha y proveedor en ítems secundarios de una misma orden
+        # 🔑 ELIMINAR FILAS COMPLETAMENTE VACÍAS (Para evitar el millón de filas fantasma de Excel)
+        df_importado = df_importado.dropna(how="all")
+        df_importado = df_importado[df_importado.astype(str).ne("").any(axis=1)]
+
+        # Rellenar celdas vacías hacia abajo (ffill) para las órdenes multi-ítem
         cols_a_rellenar = ["ORDEN", "FECHA", "PROVEEDOR", "NIT", "REQUISICIO", "ESTADO", "N. PEDIDO"]
         for col in cols_a_rellenar:
             if col in df_importado.columns:
                 df_importado[col] = df_importado[col].replace(r'^\s*$', pd.NA, regex=True)
                 df_importado[col] = df_importado[col].ffill().fillna("")
-
-        st.success(f"¡Archivo leído con éxito! Se detectaron los encabezados en la fila {fila_cabecera + 1}. Vista previa:")
-        st.dataframe(df_importado.head(5), use_container_width=True)
         
         columnas_actuales = {c.upper().strip(): c for c in df_importado.columns}
         df_procesado = pd.DataFrame(columns=COLS_OC_ESPERADAS)
@@ -101,8 +102,12 @@ if archivo_subido is not None:
             if not encontrada:
                 df_procesado[col_dest] = ""
 
+        # Filtrar solo filas que tengan un número de orden válido
         df_procesado = df_procesado[df_procesado["ORDEN"].str.strip() != ""]
         df_procesado = df_procesado.replace(["nan", "NaN", "None", "<NA>"], "")
+
+        st.success(f"¡Archivo leído con éxito! Se detectaron los encabezados en la fila {fila_cabecera + 1}. Vista previa:")
+        st.dataframe(df_procesado.head(5), use_container_width=True)
 
         st.markdown(f"**Registros válidos listos para importar:** {len(df_procesado)}")
         
@@ -110,7 +115,6 @@ if archivo_subido is not None:
             df_actual = cargar_datos(EXCEL_OC, COLS_OC_ESPERADAS)
             
             if not df_actual.empty:
-                # 🔑 El último registro (el más reciente) queda de primero en la tabla
                 df_combinado = pd.concat([df_procesado, df_actual], ignore_index=True)
             else:
                 df_combinado = df_procesado
