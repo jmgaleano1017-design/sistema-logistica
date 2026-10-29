@@ -10,7 +10,8 @@ if not st.session_state.get("password_correct", False):
 
 # 🔑 RUTA RELATIVA INTELIGENTE: Encuentra Ordenes.xlsx automáticamente en la carpeta principal
 DIRECTORIO_ACTUAL = os.path.dirname(os.path.abspath(__file__))
-EXCEL_OC = os.path.join(DIRECTORIO_ACTUAL, "..", "Ordenes.xlsx")
+# AHORA (apunta al archivo oficial del repositorio):
+EXCEL_OC = os.path.join(DIRECTORIO_ACTUAL, "..", "base_ordenes_compra.xlsx")
 
 COLS_OC_ESPERADAS = [
     "ORDEN", "FECHA", "PROVEEDOR", "NIT", "REQUISICIO", 
