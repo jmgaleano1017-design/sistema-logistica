@@ -1,4 +1,9 @@
 import streamlit as st
+
+# Validación de seguridad: Si no ha iniciado sesión, bloquea el módulo
+if not st.session_state.get("password_correct", False):
+    st.error("⚠️ Acceso denegado. Por favor, inicia sesión en la página principal (Inicio / Principal).")
+    st.stop()
 import pandas as pd
 import os
 from datetime import date, datetime
