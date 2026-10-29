@@ -119,3 +119,12 @@ if archivo_subido is not None:
 
     except Exception as e:
         st.error(f"⚠️ Ocurrió un error al procesar el archivo Excel: {e}")
+# Botón para descargar el archivo real y actualizado desde tu aplicación local
+with open(EXCEL_OC, "rb") as f:
+    st.download_button(
+        label="📥 Descargar Base Completa con los 516 Registros",
+        data=f,
+        file_name="base_ordenes_compra.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        type="primary"
+    )
