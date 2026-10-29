@@ -71,25 +71,7 @@ EMPRESA = {
     "regimen": "COMUN",
 }
 
-def cargar_logo():
-    tipos = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif"}
-    carpetas = []
-    try:
-        carpetas.append(os.path.dirname(os.path.abspath(__file__)))
-    except NameError:
-        pass
-    carpetas.append(os.getcwd())
-    for carpeta in carpetas:
-        try:
-            nombres = sorted(os.listdir(carpeta))
-        except OSError:
-            continue
-        for nombre in nombres:
-            base, ext = os.path.splitext(nombre)
-            if base.lower().startswith("logo") and ext.lower() in tipos:
-                with open(os.path.join(carpeta, nombre), "rb") as fh:
-                    return f"data:{tipos[ext.lower()]};base64," + base64.b64encode(fh.read()).decode()
-    return LOGO_EMBEBIDO
+logo_actual = LOGO_EMBEBIDO
 
 def parse_valor(x, defecto=0.0):
     t = str(x).strip().replace("$", "").replace(" ", "")
@@ -225,7 +207,6 @@ with pestana1:
     if st.session_state.get("oc_omitidos", 0) > 0:
         st.warning(f"⚠️ Se omitieron {st.session_state.oc_omitidos} ítem(s) de la RQ que no empiezan por SER, ya que seleccionó Orden de Servicio (OS).")
 
-    # Campos generales de la Orden
     col_fec, col_prov, col_est = st.columns([1, 2, 1])
     with col_fec:
         fecha_emision = st.text_input("Fecha de Emisión", value=str(date.today()), disabled=True)
@@ -241,9 +222,6 @@ with pestana1:
     with col_ped:
         n_pedido = st.text_input("N. Pedido / Referencia SAP", value="Pendiente", key=f"oc_ped_{st.session_state.oc_ver}")
 
-    # =========================================================================
-    # 📝 CAMPOS DE OBSERVACIONES Y FIRMAS (VISIBLE EN EL FORMULARIO)
-    # =========================================================================
     st.markdown("---")
     st.markdown("### 📝 Observaciones y Firmas de Autorización")
     
@@ -268,9 +246,6 @@ with pestana1:
         )
     st.markdown("---")
 
-    # -------------------------------------------------------------------------
-    # DETALLE DE LOS ÍTEMS DE LA ORDEN E IMPUESTOS
-    # -------------------------------------------------------------------------
     st.markdown("### 📋 Detalle de los Ítems de la Orden e Impuestos")
 
     if st.button("➕ Agregar Nuevo Ítem Manual", key=f"btn_add_item_{st.session_state.oc_ver}"):
@@ -329,7 +304,6 @@ with pestana1:
 
     st.markdown(f"#### Subtotal Acumulado: `{fmt_cop(subtotal_acumulado)}` | IVA Total: `{fmt_cop(iva_total_acumulado)}` | V.TOTAL FINAL: `{fmt_cop(v_total_final)}`")
 
-    # Botón para Guardar la Orden en el Excel
     if st.button("💾 Guardar y Emitir Orden de Compra", type="primary", use_container_width=True):
         if prov_seleccionado == "-- Seleccione Proveedor --":
             st.error("❌ Debe seleccionar un proveedor válido.")
@@ -380,7 +354,165 @@ with pestana1:
 
 with pestana2:
     st.subheader("🖨️ Consultar, Imprimir y Guardar PDF")
-    st.info("Utiliza esta pestaña para buscar órdenes ya emitidas, visualizar su formato impreso y exportarlas a PDF.")
+    
+    df_oc_actual = cargar_datos(EXCEL_OC, COLS_OC)
+    if df_oc_actual.empty or "ORDEN" not in df_oc_actual.columns:
+        st.info("No hay órdenes de compra registradas para consultar o imprimir.")
+    else:
+        lista_ordenes = sorted(df_oc_actual["ORDEN"].astype(str).unique(), reverse=True)
+        orden_a_consultar = st.selectbox("Seleccione la Orden a Consultar e Imprimir", lista_ordenes, key="sel_imprimir_orden")
+        
+        if orden_a_consultar:
+            df_sel = df_oc_actual[df_oc_actual["ORDEN"].astype(str) == str(orden_a_consultar)]
+            if not df_sel.empty:
+                primera_fila = df_sel.iloc[0]
+                
+                f_prov = primera_fila.get("PROVEEDOR", "")
+                f_nit = primera_fila.get("NIT", "")
+                f_fecha = fmt_fecha(primera_fila.get("FECHA", ""))
+                f_estado = primera_fila.get("ESTADO", "")
+                f_req = primera_fila.get("REQUISICIO", "")
+                f_pedido = primera_fila.get("N. PEDIDO", "")
+                f_obs = primera_fila.get("OBSERVACIONES", "Suministro autorizado bajo los términos contractuales vigentes.")
+                f_elab = primera_fila.get("ELABORADO_POR", "Juan Galeano")
+                f_aprob = primera_fila.get("APROBADO_POR", "Gerencia Logística")
+                
+                # HTML para Visualización e Impresión en PDF profesional
+                html_orden = f"""
+                <div style="background-color: white; color: black; padding: 25px; font-family: Arial, sans-serif; border: 1px solid #ccc; border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="width: 20%; vertical-align: middle;">
+                                <img src="{logo_actual}" style="max-height: 70px; max-width: 100px;" />
+                            </td>
+                            <td style="width: 50%; text-align: left; vertical-align: middle;">
+                                <h3 style="margin: 0; color: #333;">{EMPRESA['nombre']}</h3>
+                                <p style="margin: 2px 0; font-size: 11px; color: #555;">NIT: {EMPRESA['nit']}</p>
+                                <p style="margin: 2px 0; font-size: 11px; color: #555;">{EMPRESA['direccion']} | Tel: {EMPRESA['telefono']}</p>
+                            </td>
+                            <td style="width: 30%; text-align: right; vertical-align: middle; background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+                                <h4 style="margin: 0; color: #0056b3;">ORDEN DE COMPRA / SERVICIO</h4>
+                                <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: bold; color: #333;">{orden_a_consultar}</p>
+                            </td>
+                        </tr>
+                    </table>
+                    <hr style="border: 1px solid #ddd; margin: 15px 0;">
+                    <table style="width: 100%; font-size: 12px; margin-bottom: 15px;">
+                        <tr>
+                            <td><b>Proveedor:</b> {f_prov}</td>
+                            <td><b>Fecha Emisión:</b> {f_fecha}</td>
+                        </tr>
+                        <tr>
+                            <td><b>NIT Proveedor:</b> {f_nit}</td>
+                            <td><b>Estado:</b> {f_estado}</td>
+                        </tr>
+                        <tr>
+                            <td><b>Requisición / Ref:</b> {f_req}</td>
+                            <td><b>N. Pedido SAP:</b> {f_pedido}</td>
+                        </tr>
+                    </table>
+                    
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 15px;">
+                        <thead>
+                            <tr style="background-color: #0056b3; color: white;">
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">Código</th>
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Descripción</th>
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">Ref</th>
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">Cant</th>
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">Und</th>
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">V. Unit</th>
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">IVA</th>
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">V. Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                """
+                
+                subtotal_print = 0.0
+                iva_print = 0.0
+                
+                for _, row in df_sel.iterrows():
+                    c_cant = parse_cant(row.get("CANT", 1))
+                    c_unit = parse_valor(row.get("V. UNIT", 0))
+                    c_parcial = c_cant * c_unit
+                    c_iva_porc = parse_iva(row.get("IVA", "19%"))
+                    c_iva_val = c_parcial * c_iva_porc
+                    c_tot_item = c_parcial + c_iva_val
+                    
+                    subtotal_print += c_parcial
+                    iva_print += c_iva_val
+                    
+                    html_orden += f"""
+                            <tr>
+                                <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">{esc(str(row.get('CODIGO','')))}</td>
+                                <td style="padding: 6px; border: 1px solid #ddd; text-align: left;">{esc(str(row.get('DESCRIPCION','')))}</td>
+                                <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">{esc(str(row.get('REFERENCIA','NA')))}</td>
+                                <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">{fmt_num(c_cant)}</td>
+                                <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">{esc(str(row.get('UND','Und')))}</td>
+                                <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">{fmt_cop(c_unit)}</td>
+                                <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">{int(c_iva_porc*100)}%</td>
+                                <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">{fmt_cop(c_tot_item)}</td>
+                            </tr>
+                    """
+                
+                total_general_print = subtotal_print + iva_print
+                
+                html_orden += f"""
+                        </tbody>
+                    </table>
+                    
+                    <table style="width: 100%; font-size: 12px; margin-bottom: 20px;">
+                        <tr>
+                            <td style="width: 60%; vertical-align: top;">
+                                <b>Observaciones / Términos:</b><br>
+                                <div style="background-color: #fcfcfc; border: 1px solid #eee; padding: 8px; border-radius: 4px; font-size: 11px; margin-top: 5px;">
+                                    {esc(f_obs)}
+                                </div>
+                            </td>
+                            <td style="width: 40%; vertical-align: top; text-align: right;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <tr>
+                                        <td style="padding: 4px; text-align: left;"><b>Subtotal:</b></td>
+                                        <td style="padding: 4px; text-align: right;">{fmt_cop(subtotal_print)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 4px; text-align: left;"><b>IVA Total:</b></td>
+                                        <td style="padding: 4px; text-align: right;">{fmt_cop(iva_print)}</td>
+                                    </tr>
+                                    <tr style="border-top: 2px solid #333; font-weight: bold; background-color: #f1f3f5;">
+                                        <td style="padding: 6px; text-align: left;">TOTAL A PAGAR:</td>
+                                        <td style="padding: 6px; text-align: right; color: #0056b3;">{fmt_cop(total_general_print)}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <br><br>
+                    <table style="width: 100%; font-size: 11px; margin-top: 30px; text-align: center;">
+                        <tr>
+                            <td style="width: 50%;">
+                                <div style="border-top: 1px solid #333; width: 70%; margin: 0 auto; padding-top: 5px;">
+                                    <b>Elaborado por:</b><br>{esc(f_elab)}
+                                </div>
+                            </td>
+                            <td style="width: 50%;">
+                                <div style="border-top: 1px solid #333; width: 70%; margin: 0 auto; padding-top: 5px;">
+                                    <b>Aprobado / Gerencia:</b><br>{esc(f_aprob)}
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                """
+                
+                st.markdown(html_orden, unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # Botón de impresión limpia usando ventana emergente de JavaScript
+                b64_html = base64.b64encode(html_orden.encode("utf-8")).decode("utf-8")
+                link_impresion = f'<a href="data:text/html;base64,{b64_html}" target="_blank" style="display: block; text-align: center; background-color: #0056b3; color: white; padding: 12px; border-radius: 5px; text-decoration: none; font-weight: bold; font-family: Arial;">🖨️ Abrir Vista de Impresión / Guardar PDF</a>'
+                st.markdown(link_impresion, unsafe_allow_html=True)
 
 with pestana3:
     st.subheader("📋 Ver Todas las Órdenes Registradas")
