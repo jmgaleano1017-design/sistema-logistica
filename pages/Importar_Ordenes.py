@@ -1,15 +1,16 @@
 import streamlit as st
-
-# Validación de seguridad: Si no ha iniciado sesión, bloquea el módulo
-if not st.session_state.get("password_correct", False):
-    st.error("⚠️ Acceso denegado. Por favor, inicia sesión en la página principal (Inicio / Principal).")
-    st.stop()
 import pandas as pd
 import os
 
 st.set_page_config(page_title="Importar Órdenes", page_icon="📁", layout="wide")
 
-EXCEL_OC = "base_ordenes_compra.xlsx"
+# Validación de seguridad: Si no ha iniciado sesión, bloquea el módulo
+if not st.session_state.get("password_correct", False):
+    st.error("⚠️ Acceso denegado. Por favor, inicia sesión en la página principal (Inicio / Principal).")
+    st.stop()
+
+# Apuntando al nombre exacto de tu archivo real de órdenes
+EXCEL_OC = "Ordenes.xlsx"
 
 COLS_OC_ESPERADAS = [
     "ORDEN", "FECHA", "PROVEEDOR", "NIT", "REQUISICIO", 
@@ -59,6 +60,13 @@ if archivo_subido is not None:
         
         df_importado.columns = [str(c).strip().upper() for c in df_importado.columns]
         
+        # 🔑 RELLENO INTELIGENTE (Forward Fill): Hereda orden, fecha y proveedor en ítems secundarios de una misma orden
+        cols_a_rellenar = ["ORDEN", "FECHA", "PROVEEDOR", "NIT", "REQUISICIO", "ESTADO", "N. PEDIDO"]
+        for col in cols_a_rellenar:
+            if col in df_importado.columns:
+                df_importado[col] = df_importado[col].replace(r'^\s*$', pd.NA, regex=True)
+                df_importado[col] = df_importado[col].ffill().fillna("")
+
         st.success(f"¡Archivo leído con éxito! Se detectaron los encabezados en la fila {fila_cabecera + 1}. Vista previa:")
         st.dataframe(df_importado.head(5), use_container_width=True)
         
@@ -102,8 +110,8 @@ if archivo_subido is not None:
             df_actual = cargar_datos(EXCEL_OC, COLS_OC_ESPERADAS)
             
             if not df_actual.empty:
+                # 🔑 El último registro (el más reciente) queda de primero en la tabla
                 df_combinado = pd.concat([df_procesado, df_actual], ignore_index=True)
-                # Opcional: conservar manteniendo orden si se desea
             else:
                 df_combinado = df_procesado
                 
