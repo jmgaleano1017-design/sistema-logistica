@@ -4,12 +4,12 @@ import os
 
 st.set_page_config(page_title="Importar Órdenes", page_icon="📁", layout="wide")
 
-# Validación de seguridad
 if not st.session_state.get("password_correct", False):
     st.error("⚠️ Acceso denegado. Por favor, inicia sesión en la página principal (Inicio / Principal).")
     st.stop()
 
-EXCEL_OC = "Ordenes.xlsx"
+# 🔑 RUTA EXACTA DE TU BASE DE DATOS OFICIAL EN LA CARPETA PRINCIPAL
+EXCEL_OC = r"D:\OneDrive - RAMPINT S.A.S\1. Jmgp_1017\Asuserviciosss\1. Logistica\Gestion Logistica\Ordenes.xlsx"
 
 COLS_OC_ESPERADAS = [
     "ORDEN", "FECHA", "PROVEEDOR", "NIT", "REQUISICIO", 
@@ -41,11 +41,9 @@ archivo_subido = st.file_uploader("📂 Selecciona tu archivo Excel de órdenes 
 
 if archivo_subido is not None:
     try:
-        # Leer el archivo sin cabecera para buscar la fila exacta de los títulos
         df_raw = pd.read_excel(archivo_subido, header=None, dtype=str)
         df_raw = df_raw.fillna("")
         
-        # 🔑 BUSCAR CON PRECISIÓN: La fila de encabezados debe contener "ORDEN" y "FECHA"
         fila_cabecera = 0
         for idx, row in df_raw.iterrows():
             fila_textos = [str(val).strip().upper() for val in row.values]
@@ -53,18 +51,13 @@ if archivo_subido is not None:
                 fila_cabecera = idx
                 break
         
-        # Leer el Excel usando la fila correcta como cabecera
         df_importado = pd.read_excel(archivo_subido, header=fila_cabecera, dtype=str)
         df_importado = df_importado.fillna("")
         
-        # Limpiar nombres de columnas
         df_importado.columns = [str(c).strip().upper() for c in df_importado.columns]
-        
-        # Eliminar filas completamente vacías
         df_importado = df_importado.dropna(how="all")
         df_importado = df_importado[df_importado.astype(str).ne("").any(axis=1)]
 
-        # Rellenar celdas vacías hacia abajo (ffill) para las órdenes multi-ítem
         cols_a_rellenar = ["ORDEN", "FECHA", "PROVEEDOR", "NIT", "REQUISICIO", "ESTADO", "N. PEDIDO"]
         for col in cols_a_rellenar:
             if col in df_importado.columns:
@@ -102,7 +95,6 @@ if archivo_subido is not None:
             if not encontrada:
                 df_procesado[col_dest] = ""
 
-        # Filtrar solo filas que tengan un número de orden válido
         df_procesado = df_procesado[df_procesado["ORDEN"].str.strip() != ""]
         df_procesado = df_procesado.replace(["nan", "NaN", "None", "<NA>"], "")
 
