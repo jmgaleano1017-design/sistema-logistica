@@ -173,6 +173,33 @@ with pestana1:
     if es_servicio:
         st.caption("ℹ️ Las Órdenes de Servicio (OS) solo admiten códigos que empiecen por **SER** (ej. SER01001).")
     
+    # ----------------------------------------------------
+    # CAMPOS DE OBSERVACIONES Y FIRMAS (VISIBLE EN PANTALLA)
+    # ----------------------------------------------------
+    st.markdown("---")
+    st.markdown("### 📝 Observaciones y Firmas de Autorización")
+    
+    col_obs1, col_obs2 = st.columns(2)
+    with col_obs1:
+        observaciones_orden = st.text_area(
+            "Observaciones / Términos",
+            value="Suministro autorizado bajo los términos contractuales vigentes.",
+            help="Ingrese notas, términos o condiciones especiales para el proveedor.",
+            key="input_observaciones_form"
+        )
+    with col_obs2:
+        elaborado_por = st.text_input(
+            "Elaborado por", 
+            value=st.session_state.get("username", "Juan Galeano"),
+            key="input_elaborado_form"
+        )
+        aprobado_por = st.text_input(
+            "Aprobado / Gerencia", 
+            value="Gerencia Logística",
+            key="input_aprobado_form"
+        )
+    st.markdown("---")
+    
     if "items_orden_temp" not in st.session_state:
         st.session_state.items_orden_temp = []
 
@@ -204,24 +231,3 @@ with pestana1:
                 cod_mat = str(r_item.get("Cod Material", "")).strip()
                 desc_mat = str(r_item.get("Descripcion", "")).strip()
                 ref_val = str(r_item.get("Ref", "NA")).strip()
-
-    # --- CAMPOS DE OBSERVACIONES Y FIRMAS (AHORA SÍ VISIBLES EN EL FORMULARIO) ---
-    st.markdown("---")
-    st.subheader("📝 Observaciones y Firmas de Autorización")
-    
-    col_obs1, col_obs2 = st.columns(2)
-    with col_obs1:
-        observaciones_orden = st.text_area(
-            "Observaciones / Términos",
-            value="Suministro autorizado bajo los términos contractuales vigentes.",
-            help="Ingrese notas, términos o condiciones especiales para el proveedor."
-        )
-    with col_obs2:
-        elaborado_por = st.text_input(
-            "Elaborado por", 
-            value=st.session_state.get("username", "Juan Galeano")
-        )
-        aprobado_por = st.text_input(
-            "Aprobado / Gerencia", 
-            value="Gerencia Logística"
-        )
