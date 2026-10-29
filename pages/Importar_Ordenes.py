@@ -45,11 +45,11 @@ if archivo_subido is not None:
         df_raw = pd.read_excel(archivo_subido, header=None, dtype=str)
         df_raw = df_raw.fillna("")
         
-        # Buscar con precisión la fila donde la columna se llama "ORDEN"
+        # 🔑 BUSCAR CON PRECISIÓN: La fila de encabezados debe contener "ORDEN" y "FECHA"
         fila_cabecera = 0
         for idx, row in df_raw.iterrows():
             fila_textos = [str(val).strip().upper() for val in row.values]
-            if "ORDEN" in fila_textos:
+            if "ORDEN" in fila_textos and "FECHA" in fila_textos:
                 fila_cabecera = idx
                 break
         
@@ -60,7 +60,7 @@ if archivo_subido is not None:
         # Limpiar nombres de columnas
         df_importado.columns = [str(c).strip().upper() for c in df_importado.columns]
         
-        # 🔑 ELIMINAR FILAS COMPLETAMENTE VACÍAS (Para evitar el millón de filas fantasma de Excel)
+        # Eliminar filas completamente vacías
         df_importado = df_importado.dropna(how="all")
         df_importado = df_importado[df_importado.astype(str).ne("").any(axis=1)]
 
@@ -106,7 +106,7 @@ if archivo_subido is not None:
         df_procesado = df_procesado[df_procesado["ORDEN"].str.strip() != ""]
         df_procesado = df_procesado.replace(["nan", "NaN", "None", "<NA>"], "")
 
-        st.success(f"¡Archivo leído con éxito! Se detectaron los encabezados en la fila {fila_cabecera + 1}. Vista previa:")
+        st.success(f"¡Archivo leído con éxito! Se detectaron los encabezados en la fila real {fila_cabecera + 1}. Vista previa:")
         st.dataframe(df_procesado.head(5), use_container_width=True)
 
         st.markdown(f"**Registros válidos listos para importar:** {len(df_procesado)}")
